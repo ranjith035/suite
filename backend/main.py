@@ -1,13 +1,27 @@
 import os
-from fastapi import FastAPI, HTTPException
+import logging
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from typing import List
 from utils import SessionManager, TokenManager, Message
 from agents import MultiAgentSystem
 import google.generativeai as genai
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
+
+# --- Logging Configuration ---
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+logging.basicConfig(
+    level=logging.INFO,
+    format=log_format,
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger("TDM-API")
 
 app = FastAPI(title="Google ADK Multi-Agent API")
 session_manager = SessionManager()
@@ -17,11 +31,20 @@ token_manager = TokenManager(auth_api_url=os.getenv("AUTH_API_URL"))
 API_KEY = os.getenv("GOOGLE_API_KEY")
 if API_KEY:
     genai.configure(api_key=API_KEY)
+    logger.info("AI Studio configured successfully.")
 else:
-    print("Warning: GOOGLE_API_KEY not found in environment.")
+    logger.warning("GOOGLE_API_KEY not found in environment.")
 
 # Initialize Multi-Agent System
 multi_agent = MultiAgentSystem()
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    duration = time.time() - start_time
+    logger.info(f"Method: {request.method} Path: {request.url.path} Status: {response.status_code} Duration: {duration:.2f}s")
+    return response
 
 @app.get("/")
 async def root():
@@ -40,8 +63,10 @@ class UserVerifyRequest(BaseModel):
 async def verify_user(request: UserVerifyRequest):
     is_allowed = session_manager.is_user_allowed(request.username)
     if is_allowed:
+        logger.info(f"User login verified: {request.username}")
         return {"allowed": True}
     else:
+        logger.warning(f"Unauthorized login attempt: {request.username}")
         return {"allowed": False}
 
 class ChatRequest(BaseModel):
@@ -55,6 +80,7 @@ class ChatResponse(BaseModel):
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     try:
+        logger.info(f"Processing chat request for session: {request.session_id}")
         # 1. Get History from SQLite
         history = session_manager.get_history(request.session_id)
         
@@ -78,6 +104,7 @@ async def chat(request: ChatRequest):
         return ChatResponse(response=response_text, history=updated_history)
     
     except Exception as e:
+        logger.error(f"Chat Error in session {request.session_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/history/{session_id}", response_model=List[Message])
@@ -86,6 +113,7 @@ async def get_history(session_id: str):
 
 @app.delete("/history/{session_id}")
 async def clear_history(session_id: str):
+    logger.info(f"Clearing history for session: {session_id}")
     session_manager.clear_history(session_id)
     return {"status": "cleared"}
 
