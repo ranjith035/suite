@@ -14,7 +14,37 @@ st.set_page_config(page_title="Google ADK Agent", layout="wide")
 # --- Styling ---
 st.markdown("""
     <style>
+    /* Global Styles */
+    .main { background: #f8f9fa; }
     .stChatMessage { border-radius: 15px; padding: 10px; margin-bottom: 10px; }
+    
+    /* Login Container */
+    .login-container {
+        max-width: 450px;
+        margin: 100px auto;
+        padding: 40px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        border: 1px solid #eee;
+        text-align: center;
+    }
+    .login-header {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        color: #1e1e1e;
+        margin-bottom: 10px;
+        font-size: 2rem;
+    }
+    .login-sub {
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 0.95rem;
+    }
+    /* Input Styling */
+    div[data-baseweb="input"] {
+        border-radius: 10px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -27,23 +57,43 @@ if "username" not in st.session_state:
 
 # --- Authentication UI ---
 def login_screen():
-    st.title("🔐 Login")
-    st.write("Please enter your organization username to access the Google ADK Agent.")
+    # Use empty space to center the form vertically-ish
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
     
-    username = st.text_input("Username").strip().lower()
+    _, center_col, _ = st.columns([1, 1.5, 1])
     
-    if st.button("Access Agent"):
-        if username in [u.strip().lower() for u in ALLOWED_USERS]:
-            st.session_state.authenticated = True
-            st.session_state.username = username
-            # Tie session_id to username for persistence across devices/logins
-            st.session_state.session_id = f"user_{username}" 
-            st.success(f"Welcome, {username}!")
-            st.rerun()
-        elif username == "":
-            st.warning("Please enter a username.")
-        else:
-            st.error("Access Denied: Username not in the approved list.")
+    with center_col:
+        st.markdown("""
+            <div style="text-align: center;">
+                <h1 class="login-header">🤖 TDM-UI</h1>
+                <p class="login-sub">Sign in with your organization ID</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        username = st.text_input("Username", 
+                               placeholder="Enter your ID (e.g. ranjit)", 
+                               label_visibility="collapsed").strip().lower()
+        
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        
+        if st.button("Access Agent", use_container_width=True, type="primary"):
+            if username == "":
+                st.warning("Please enter a username.")
+            else:
+                try:
+                    response = requests.post(f"{API_URL}/verify-user", json={"username": username})
+                    if response.status_code == 200 and response.json().get("allowed"):
+                        st.session_state.authenticated = True
+                        st.session_state.username = username
+                        st.session_state.session_id = f"user_{username}" 
+                        st.success(f"Welcome, {username}!")
+                        st.rerun()
+                    else:
+                        st.error("Access Denied: Username not found.")
+                except Exception as e:
+                    st.error(f"Authentication Error: {str(e)}")
+        
+        st.markdown("<p style='text-align: center; color: #999; font-size: 0.8rem; margin-top: 20px;'>Secure Enterprise AI Portal</p>", unsafe_allow_html=True)
 
 # --- Main App Logic ---
 if not st.session_state.authenticated:

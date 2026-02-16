@@ -39,13 +39,21 @@ We provide scripts to simplify the setup and execution on both Windows and macOS
 ### Setup
 Run the setup script for your operating system to create virtual environments and install dependencies:
 
-- **Windows**: `.\setup_env.ps1`
+- **Windows**: 
+  ```powershell
+  # If you get an error about "running scripts is disabled", use this:
+  powershell -ExecutionPolicy Bypass -File .\setup_env.ps1
+  ```
 - **macOS/Linux**: `./setup_env.sh` (You may need to run `chmod +x setup_env.sh` first).
 
 ### Running the App
 Start both the Backend and Frontend services simultaneously using the run script:
 
-- **Windows**: `.\run_app.ps1`
+- **Windows**: 
+  ```powershell
+  # If you get an error about "running scripts is disabled", use this:
+  powershell -ExecutionPolicy Bypass -File .\run_app.ps1
+  ```
 - **macOS/Linux**: `./run_app.sh` (You may need to run `chmod +x run_app.sh` first).
 
 Once running:

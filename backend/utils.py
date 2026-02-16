@@ -9,8 +9,13 @@ class Message(BaseModel):
     content: str
 
 class SessionManager:
-    def __init__(self, db_path='sessions.db'):
-        self.db_path = db_path
+    def __init__(self, db_path=None):
+        if db_path is None:
+            # Default to sessions.db in the same directory as this file (backend/)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            self.db_path = os.path.join(base_dir, 'sessions.db')
+        else:
+            self.db_path = db_path
         self._init_db()
 
     def _init_db(self):
@@ -23,7 +28,31 @@ class SessionManager:
                     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS allowed_users (
+                    username TEXT PRIMARY KEY,
+                    added_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_session_id ON chat_sessions(session_id)")
+
+    def is_user_allowed(self, username: str) -> bool:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT 1 FROM allowed_users WHERE username = ?", (username.lower(),))
+            return cursor.fetchone() is not None
+
+    def add_user(self, username: str):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("INSERT OR IGNORE INTO allowed_users (username) VALUES (?)", (username.lower(),))
+
+    def remove_user(self, username: str):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("DELETE FROM allowed_users WHERE username = ?", (username.lower(),))
+
+    def get_all_users(self) -> List[str]:
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT username FROM allowed_users")
+            return [row[0] for row in cursor.fetchall()]
 
     def save_message(self, session_id: str, role: str, content: str):
         with sqlite3.connect(self.db_path) as conn:

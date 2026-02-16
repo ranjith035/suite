@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(title="Google ADK Multi-Agent API")
-session_manager = SessionManager(db_path="sessions.db")
+session_manager = SessionManager()
 token_manager = TokenManager(auth_api_url=os.getenv("AUTH_API_URL"))
 
 # Configure AI Studio
@@ -26,6 +26,23 @@ multi_agent = MultiAgentSystem()
 @app.get("/")
 async def root():
     return {"status": "ok", "service": "Google ADK Multi-Agent API", "sdk": "AI Studio"}
+
+# Seed users from .env if table is empty
+ALLOWED_USERS_ENV = os.getenv("ALLOWED_USERS", "").split(",")
+for user in ALLOWED_USERS_ENV:
+    if user.strip():
+        session_manager.add_user(user.strip())
+
+class UserVerifyRequest(BaseModel):
+    username: str
+
+@app.post("/verify-user")
+async def verify_user(request: UserVerifyRequest):
+    is_allowed = session_manager.is_user_allowed(request.username)
+    if is_allowed:
+        return {"allowed": True}
+    else:
+        return {"allowed": False}
 
 class ChatRequest(BaseModel):
     session_id: str
