@@ -1,0 +1,11 @@
+{
+    "ui": {
+        "page_title": "Google JDK",
+        "login_header": "TDM Agents",
+        "login_subtext": "Sign in with your organization ID",
+        "login_footer": "Secure Enterprise AI Portal",
+        "app_title": "TDM Agents",
+        "sidebar_title": "Agent Settings",
+        "chat_placeholder": "What is on your mind?"
+    }
+}

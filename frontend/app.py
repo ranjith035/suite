@@ -2,14 +2,38 @@ import streamlit as st
 import requests
 import uuid
 import os
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# --- Load Configuration ---
+def load_config():
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.json")
+    try:
+        with open(config_path, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        # Fallback to defaults if config is missing or broken
+        return {
+            "ui": {
+                "page_title": "Google ADK Agent",
+                "login_header": "🤖 TDM-UI",
+                "login_subtext": "Sign in with your organization ID",
+                "login_footer": "Secure Enterprise AI Portal",
+                "app_title": "🤖 Google ADK Agent",
+                "sidebar_title": "Agent Settings",
+                "chat_placeholder": "What is on your mind?"
+            }
+        }
+
+config = load_config()
+UI = config.get("ui", {})
+
 API_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 ALLOWED_USERS = os.getenv("ALLOWED_USERS", "admin").split(",")
 
-st.set_page_config(page_title="Google ADK Agent", layout="wide")
+st.set_page_config(page_title=UI.get("page_title", "Google ADK Agent"), layout="wide")
 
 # --- Styling ---
 st.markdown("""
@@ -63,10 +87,10 @@ def login_screen():
     _, center_col, _ = st.columns([1, 1.5, 1])
     
     with center_col:
-        st.markdown("""
+        st.markdown(f"""
             <div style="text-align: center;">
-                <h1 class="login-header">🤖 TDM-UI</h1>
-                <p class="login-sub">Sign in with your organization ID</p>
+                <h1 class="login-header">{UI.get('login_header', '🤖 TDM-UI')}</h1>
+                <p class="login-sub">{UI.get('login_subtext', 'Sign in with your organization ID')}</p>
             </div>
         """, unsafe_allow_html=True)
         
@@ -85,6 +109,7 @@ def login_screen():
                     if response.status_code == 200 and response.json().get("allowed"):
                         st.session_state.authenticated = True
                         st.session_state.username = username
+                        # Tie session_id to username for persistence across devices/logins
                         st.session_state.session_id = f"user_{username}" 
                         st.success(f"Welcome, {username}!")
                         st.rerun()
@@ -93,7 +118,7 @@ def login_screen():
                 except Exception as e:
                     st.error(f"Authentication Error: {str(e)}")
         
-        st.markdown("<p style='text-align: center; color: #999; font-size: 0.8rem; margin-top: 20px;'>Secure Enterprise AI Portal</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; color: #999; font-size: 0.8rem; margin-top: 20px;'>{UI.get('login_footer', 'Secure Enterprise AI Portal')}</p>", unsafe_allow_html=True)
 
 # --- Main App Logic ---
 if not st.session_state.authenticated:
@@ -115,7 +140,7 @@ else:
 
     # --- Sidebar ---
     with st.sidebar:
-        st.title("Agent Settings")
+        st.title(UI.get("sidebar_title", "Agent Settings"))
         st.write(f"Logged in as: **{st.session_state.username}**")
         st.info(f"Identity Key: `{session_id}`")
         
@@ -132,7 +157,7 @@ else:
             st.rerun()
 
     # --- Main UI ---
-    st.title("🤖 Google ADK Agent")
+    st.title(UI.get("app_title", "🤖 Google ADK Agent"))
     st.caption(f"Persistent Chat for {st.session_state.username}")
 
     # Display messages
@@ -141,7 +166,7 @@ else:
             st.write(message["content"])
 
     # User Input
-    if prompt := st.chat_input("What is on your mind?"):
+    if prompt := st.chat_input(UI.get("chat_placeholder", "What is on your mind?")):
         # Display user message
         with st.chat_message("user"):
             st.write(prompt)
